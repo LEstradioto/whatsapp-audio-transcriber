@@ -7,34 +7,27 @@ A Chrome extension that adds transcription buttons to WhatsApp Web audio message
 Why Groq?
 - Fast, basically free with their free tier, and the Whisper (turbo) model is really good.
 
+## How It Works
+
+- **Seamless Integration**: After each audio message in WhatsApp Web, a "Transcribe" button appears. Click it to instantly transcribe the audio and display the text directly below the message.
+- **Efficient Caching**: Transcriptions are stored in localStorage for up to the latest 3 days, allowing reuse without additional API calls.
+- **Superior Accuracy**: The Whisper model outperforms Meta's native transcriber, delivering outstanding transcription quality.
+
 ⚠️ **Important Notice**
 
 This extension is not officially associated with WhatsApp or Meta. Please be aware that:
 
 - Using unofficial modifications to WhatsApp Web may violate WhatsApp's Terms of Service
 - Audio data from messages is sent to GROQ's API for transcription
-- We recommend only using this extension for personal, non-sensitive communications
-
-## Features
-
-- Automatically adds transcribe buttons to audio messages in WhatsApp Web
-- Transcribes voice messages and audio files using GROQ's Whisper Large v3 model
-- Clean integration with WhatsApp Web's interface
-- Fast and accurate transcription results
+- Its recommended only using this extension for personal, non-sensitive communications
 
 ## Installation
 
 1. Clone or download this repository
 2. Open Chrome and navigate to `chrome://extensions/`
-3. Enable "Developer mode" in the top right corner
+3. Enable "Developer mode" in the top right corner (if needed)
 4. Click "Load unpacked" and select the directory containing these files
-
-## Usage
-
-1. After installation, visit https://web.whatsapp.com
-2. The extension will automatically add "Transcribe" buttons next to audio messages
-3. Click the button to transcribe any audio message
-4. The transcription will appear below the audio message
+5. Add your Groq API Key at the Extension Settings/Options
 
 ## Technical Details
 
@@ -45,3 +38,15 @@ The extension works by:
 3. Converting audio to the required format
 4. Sending to GROQ's Whisper API for transcription
 5. Displaying results in the WhatsApp interface
+
+## Troubleshooting
+
+Q: Im getting an error (Error - Try again)
+
+- R: Ensure you setup the API Key correctly. Open Extension Settings (Options) and add your own Groq API Key, select the model and save.
+
+## TODO
+- Better setup api key (in a popup), instead of extension settings (to be more friendly)
+- Add some basic instructions in that popup
+- Add more providers (openai, etc...)
+- Save messages to localStorage but encrypt it

@@ -1,33 +1,76 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <meta charset="utf-8">
   <title>WhatsApp Transcription Settings</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: auto; }
-    label { display: block; margin-top: 15px; font-weight: bold; }
-    input[type="text"], input[type="password"], select { width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box; }
-    button { margin-top: 20px; padding: 10px 15px; font-size: 16px; }
-    #status { margin-top: 10px; color: green; }
-    option[title] { font-size: 14px; }
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      max-width: 600px;
+      margin: auto;
+      font-size: 16px;
+    }
+
+    label {
+      display: block;
+      margin-top: 15px;
+      font-weight: bold;
+      font-size: 16px;
+    }
+
+    input[type="text"],
+    input[type="password"],
+    select {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+      box-sizing: border-box;
+      font-size: 16px;
+    }
+
+    button {
+      margin-top: 20px;
+      padding: 10px 15px;
+      font-size: 22px;
+    }
+
+    #status {
+      margin-top: 10px;
+      color: green;
+    }
+
+    #fetchModelsBtn {
+      margin-left: 10px;
+      padding: 0;
+      font-size: 16px;
+      background: none;
+      border: none;
+      color: #0074d9;
+      text-decoration: underline;
+      cursor: pointer;
+    }
   </style>
 </head>
+
 <body>
   <h1>Transcription Settings</h1>
 
   <label for="apiKey">GROQ API Key:</label>
   <input type="password" id="apiKey" placeholder="Enter your GROQ API Key" />
 
-  <label for="modelSelect">Model:</label>
+  <label for="modelSelect">Model:
+    <button id="fetchModelsBtn" type="button">Fetch Audio Models from GROQ</button></label>
   <select id="modelSelect">
-    <option value="whisper-large-v3-turbo" title="A fine-tuned version of a pruned Whisper Large V3 designed for fast, multilingual transcription tasks.">Whisper Large V3 Turbo (Multilingual)</option>
-    <option value="distil-whisper-large-v3-en" title="A distilled, or compressed, version of OpenAI's Whisper model, designed to provide faster, lower cost English speech recognition while maintaining comparable accuracy.">Distil-Whisper English (English-only)</option>
-    <option value="whisper-large-v3" title="Provides state-of-the-art performance with high accuracy for multilingual transcription and translation tasks.">Whisper large-v3 (Multilingual)</option>
   </select>
+
+  <div id="fetchStatus" style="margin-top:10px;color:blue;"></div>
 
   <button id="saveBtn">Save</button>
   <div id="status"></div>
 
   <script src="options.js"></script>
 </body>
+
 </html>

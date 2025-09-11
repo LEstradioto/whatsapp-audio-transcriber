@@ -1,5 +1,5 @@
 // Listen for messages from the injected script
-window.addEventListener('message', async function(event) {
+window.addEventListener('message', async function (event) {
     // We only accept messages from ourselves
     if (event.source != window) return;
 
@@ -64,9 +64,9 @@ window.addEventListener('message', async function(event) {
     }
 
 
-  if (event.data.type === 'OPEN_OPTIONS_PAGE') {
-    chrome.runtime.sendMessage({ action: "openOptions" });
-  }
+    if (event.data.type === 'OPEN_OPTIONS_PAGE') {
+        chrome.runtime.sendMessage({ action: "openOptions" });
+    }
 }, false);
 
 // Inject our script into the page
