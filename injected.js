@@ -81,32 +81,14 @@
         return msg;
     };
 
-    // Load saved transcriptions from localStorage
-    const loadSavedTranscriptions = () => {
-        const saved = localStorage.getItem('whatsappTranscriptions');
-        if (!saved) return {};
-        const transcriptions = JSON.parse(saved);
+    // Cache of transcriptions pulled from extension storage
+    let cachedTranscriptions = {};
 
-        // Remove transcriptions older than 3 days
-        const threeDaysAgo = Date.now() - (3 * 24 * 60 * 60 * 1000);
-        Object.keys(transcriptions).forEach(key => {
-            if (transcriptions[key].timestamp < threeDaysAgo) {
-                delete transcriptions[key];
-            }
-        });
-
-        return transcriptions;
+    const requestSavedTranscriptions = () => {
+        window.postMessage({ type: 'GET_SAVED_TRANSCRIPTIONS' }, '*');
     };
 
-    // Save transcription to localStorage
-    const saveTranscription = (messageId, text) => {
-        const transcriptions = loadSavedTranscriptions();
-        transcriptions[messageId] = {
-            text,
-            timestamp: Date.now()
-        };
-        localStorage.setItem('whatsappTranscriptions', JSON.stringify(transcriptions));
-    };
+    requestSavedTranscriptions(); // initial load
 
     // Update the event listener for transcription responses
     window.addEventListener('message', function (event) {
@@ -120,11 +102,12 @@
                 if (event.data.success) {
                     button.textContent = 'Transcribe again';
                     button.style.background = 'rgb(0 92 75)';
+                    button.style.right = '-240px';
                     button.disabled = false;
                     transcriptionContainer.style.display = 'block';
                     textContentDiv.textContent = event.data.data.text;
-                    // Save transcription
-                    saveTranscription(messageId, event.data.data.text);
+                    // Content script persists it; update cache locally too
+                    cachedTranscriptions[messageId] = { text: event.data.data.text, timestamp: Date.now() };
                 } else {
                     console.error('GROQ API Error:', event.data.error);
                     button.textContent = 'Error - Try again';
@@ -144,9 +127,9 @@
                         color: white;
                     `;
                     if (event.data.options && event.data.error === "GROQ API MISSING OR INVALID") {
-                        errorMessage.innerHTML = event.data.error + ' <a href="#" id="open-options" style="color:#0084ff;text-decoration:underline;">Open extension options</a>';
+                        errorMessage.innerHTML = event.data.error + ' <a href="#" id="open-settings" style="color:#0084ff;text-decoration:underline;">Open settings</a>';
                         errorMessage.querySelector('a').addEventListener('click', () => {
-                            window.postMessage({ type: 'OPEN_OPTIONS_PAGE' }, '*');
+                            window.postMessage({ type: 'OPEN_SETTINGS' }, '*');
                         });
                     } else {
                         errorMessage.textContent = event.data.error;
@@ -157,9 +140,16 @@
         }
     });
 
+    // Listen for saved transcription payload
+    window.addEventListener('message', function (event) {
+        if (event.data.type === 'SAVED_TRANSCRIPTIONS') {
+            cachedTranscriptions = event.data.payload || {};
+        }
+    });
+
     function injectTranscribeButtons() {
         const messages = document.querySelectorAll('[data-id]');
-        const savedTranscriptions = loadSavedTranscriptions();
+        const savedTranscriptions = cachedTranscriptions;
 
         // Define SVG icons as constants to avoid repetition
         const SVG_ICONS = {
@@ -278,6 +268,7 @@
                 textContentDiv.textContent = savedTranscriptions[id].text;
                 button.textContent = 'Transcribe again';
                 button.style.background = 'rgb(0 92 75)';
+                button.style.right = ' -240px';
             }
 
             // Add copy button click handler

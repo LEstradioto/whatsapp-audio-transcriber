@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "WhatsApp Transcription",
-  "version": "1.0",
-  "description": "Transcripts audio messages using GROQ API",
+  "version": "1.1",
+  "description": "Transcribes WhatsApp audio messages using the GROQ API.",
   "permissions": [
     "scripting",
     "storage"
@@ -14,19 +14,29 @@
   "background": {
     "service_worker": "background.js"
   },
-  "web_accessible_resources": [{
-    "resources": ["injected.js"],
-    "matches": ["https://web.whatsapp.com/*"]
-  }],
-  "content_scripts": [
+  "action": {
+    "default_title": "WhatsApp Transcription Settings",
+    "default_popup": "popup.html"
+  },
+  "web_accessible_resources": [
     {
-      "matches": ["https://web.whatsapp.com/*"],
-      "js": ["content.js"],
-      "run_at": "document_idle"
+      "resources": [
+        "injected.js"
+      ],
+      "matches": [
+        "https://web.whatsapp.com/*"
+      ]
     }
   ],
-  "options_ui": {
-    "page": "options.html",
-    "open_in_tab": true
-  }
+  "content_scripts": [
+    {
+      "matches": [
+        "https://web.whatsapp.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
 }

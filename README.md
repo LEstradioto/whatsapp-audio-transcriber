@@ -9,9 +9,9 @@ Why Groq?
 
 ## How It Works
 
-- **Seamless Integration**: After each audio message in WhatsApp Web, a "Transcribe" button appears. Click it to instantly transcribe the audio and display the text directly below the message.
-- **Efficient Caching**: Transcriptions are stored in localStorage for up to the latest 3 days, allowing reuse without additional API calls.
-- **Superior Accuracy**: The Whisper model outperforms Meta's native transcriber, delivering outstanding transcription quality.
+- After each audio message in WhatsApp Web, a "Transcribe" button appears. Click it to instantly transcribe the audio and display the text directly below the message.
+- Transcriptions are stored in localStorage for up to the latest 3 days, allowing reuse without additional API calls.
+- The Whisper model outperforms Meta's native transcriber, delivering outstanding transcription quality.
 
 ⚠️ **Important Notice**
 
@@ -27,7 +27,7 @@ This extension is not officially associated with WhatsApp or Meta. Please be awa
 2. Open Chrome and navigate to `chrome://extensions/`
 3. Enable "Developer mode" in the top right corner (if needed)
 4. Click "Load unpacked" and select the directory containing these files
-5. Add your Groq API Key at the Extension Settings/Options
+5. Add your Groq API Key at the Extension Settings
 
 ## Technical Details
 
@@ -43,10 +43,7 @@ The extension works by:
 
 Q: Im getting an error (Error - Try again)
 
-- R: Ensure you setup the API Key correctly. Open Extension Settings (Options) and add your own Groq API Key, select the model and save.
+- R: Ensure you setup the API Key correctly. Open Extension Settings and add your own Groq API Key, select the model and save.
 
 ## TODO
-- Better setup api key (in a popup), instead of extension settings (to be more friendly)
-- Add some basic instructions in that popup
-- Add more providers (openai, etc...)
-- Save messages to localStorage but encrypt it
+- Add more providers (openai, openroute, ollama, etc...)

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>WhatsApp Transcriber</title>
+    <style>
+        :root {
+            color-scheme: light dark;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, Arial, sans-serif;
+            margin: 0;
+            padding: 12px 14px 16px;
+            width: 340px;
+            box-sizing: border-box;
+        }
+
+        h1 {
+            font-size: 16px;
+            margin: 0 0 8px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-top: 10px;
+            font-size: 13px;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 6px 8px;
+            margin-top: 4px;
+            font-size: 13px;
+            box-sizing: border-box;
+        }
+
+        button {
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        #saveBtn {
+            margin-top: 14px;
+            width: 100%;
+            padding: 8px 10px;
+            background: #00a884;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        #saveBtn:disabled {
+            opacity: .6;
+        }
+
+        #status {
+            margin-top: 6px;
+            font-size: 12px;
+            min-height: 16px;
+        }
+
+        small {
+            font-size: 11px;
+            line-height: 1.4;
+            display: block;
+            margin-top: 10px;
+            opacity: .8;
+        }
+
+        #fetchModelsBtn {
+            margin-left: 6px;
+            font-size: 11px;
+            background: none;
+            border: none;
+            color: #0b57d0;
+            text-decoration: underline;
+            padding: 0;
+        }
+
+        #fetchStatus {
+            font-size: 11px;
+            margin-top: 4px;
+            min-height: 14px;
+        }
+
+        .divider {
+            margin: 12px 0 10px;
+            border-top: 1px solid #ccc;
+            opacity: .4;
+        }
+
+        .row {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        a {
+            color: #0b57d0;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .danger-note {
+            color: #b34800;
+            font-size: 11px;
+            margin-top: 6px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>WhatsApp Transcriber</h1>
+    <p style="margin:0 0 8px;font-size:12px;">Enter your <strong>GROQ API key</strong>, pick a model, then open
+        <strong>web.whatsapp.com</strong>. New audio messages get a Transcribe button.</p>
+
+    <label for="apiKey">GROQ API Key</label>
+    <input type="password" id="apiKey" placeholder="gsk_..." autocomplete="off" />
+
+    <label for="modelSelect" style="display:flex; align-items:center; justify-content:space-between;">
+        <span>Model</span>
+        <button id="fetchModelsBtn" type="button">Refresh models</button>
+    </label>
+    <select id="modelSelect"></select>
+    <div id="fetchStatus"></div>
+
+    <button id="saveBtn">Save Settings</button>
+    <div id="status"></div>
+
+    <div class="divider"></div>
+    <small>
+        How to use:<br />
+        1. Get an API key at <a href="https://console.groq.com/keys" target="_blank">GROQ Console</a>.<br />
+        2. Paste it above and Save.<br />
+        3. Go to or refresh WhatsApp Web. Audio messages will show a Transcribe button.<br />
+        Your key is stored only locally (Chrome sync storage). Transcriptions (last 3 days) are stored in extension
+        local storage, not on WhatsApp.
+    </small>
+    <p class="danger-note">Never share your API key. Anyone with it could spend your quota.</p>
+
+    <script src="popup.js"></script>
+</body>
+
+</html>

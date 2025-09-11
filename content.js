@@ -1,3 +1,27 @@
+// Helper: fetch transcripts map from chrome.storage.local
+async function getTranscriptions() {
+    return await new Promise(resolve => chrome.storage.local.get({ transcriptions: {} }, items => resolve(items.transcriptions)));
+}
+
+// TTL cleanup (3 days)
+async function pruneOld(transcriptions) {
+    const threeDaysAgo = Date.now() - (3 * 24 * 60 * 60 * 1000);
+    let changed = false;
+    for (const k of Object.keys(transcriptions)) {
+        if (transcriptions[k].timestamp < threeDaysAgo) { delete transcriptions[k]; changed = true; }
+    }
+    if (changed) {
+        await new Promise(r => chrome.storage.local.set({ transcriptions }, r));
+    }
+    return transcriptions;
+}
+
+async function saveTranscription(messageId, text) {
+    const transcriptions = await getTranscriptions();
+    transcriptions[messageId] = { text, timestamp: Date.now() };
+    await new Promise(r => chrome.storage.local.set({ transcriptions }, r));
+}
+
 // Listen for messages from the injected script
 window.addEventListener('message', async function (event) {
     // We only accept messages from ourselves
@@ -52,6 +76,10 @@ window.addEventListener('message', async function (event) {
                 success: true,
                 data: result
             }, '*');
+            // Persist transcription text if available
+            if (result && result.text) {
+                saveTranscription(event.data.messageId, result.text);
+            }
         } catch (error) {
             console.error('GROQ API Error:', error);
             window.postMessage({
@@ -63,9 +91,9 @@ window.addEventListener('message', async function (event) {
         }
     }
 
-
-    if (event.data.type === 'OPEN_OPTIONS_PAGE') {
-        chrome.runtime.sendMessage({ action: "openOptions" });
+    if (event.data.type === 'GET_SAVED_TRANSCRIPTIONS') {
+        const transcriptions = await pruneOld(await getTranscriptions());
+        window.postMessage({ type: 'SAVED_TRANSCRIPTIONS', payload: transcriptions }, '*');
     }
 }, false);
 
