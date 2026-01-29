@@ -329,38 +329,102 @@
                     button.style.background = '#999999';
 
                     const storeMsg = window.Store.Msg.get(id);
-                    const msg = window.WWebJS.getMessageModel(storeMsg);
-                    const dlFn = window.Store.DownloadManager.downloadAndDecrypt || window.Store.DownloadManager.downloadAndMaybeDecrypt;
 
-                    if (msg && msg.type === 'audio' || msg.type === 'ptt') {
-                        const blobData = await dlFn({
-                            directPath: msg.directPath,
-                            encFilehash: msg.encFilehash,
-                            filehash: msg.filehash,
-                            mediaKey: msg.mediaKey,
-                            mediaKeyTimestamp: msg.mediaKeyTimestamp,
-                            type: msg.type,
-                            signal: new AbortController().signal,
-                        });
-
-                        const blob = new Blob([blobData], { type: 'application/octet-stream' });
-                        const reader = new FileReader();
-
-                        reader.onload = async function () {
-                            if (!reader.result || typeof reader.result !== 'string') return;
-
-                            const audioData = reader.result.split(',')[1];
-
-                            // Send message to content script
-                            window.postMessage({
-                                type: 'TRANSCRIBE_AUDIO',
-                                audioData: audioData,
-                                messageId: id
-                            }, '*');
-                        };
-
-                        reader.readAsDataURL(blob);
+                    if (!storeMsg) {
+                        throw new Error('Message not found');
                     }
+
+                    let mediaData = storeMsg.mediaData;
+                    const msgType = storeMsg.type || (mediaData && mediaData.type);
+
+                    if (!(msgType === 'audio' || msgType === 'ptt')) {
+                        button.textContent = 'Not an audio message';
+                        button.style.background = '#f44336';
+                        button.disabled = false;
+                        return;
+                    }
+
+                    const dlMgr = window.Store.DownloadManager;
+                    const signal = new AbortController().signal;
+
+                    if (!mediaData && typeof storeMsg.downloadMedia === 'function') {
+                        await storeMsg.downloadMedia({
+                            downloadEvenIfExpensive: true,
+                            rmrReason: 1
+                        });
+                        mediaData = storeMsg.mediaData;
+                    }
+
+                    if (mediaData) {
+                        const stage = mediaData.mediaStage;
+                        if (stage === 'REUPLOADING') {
+                            throw new Error('Media expired (WhatsApp is reuploading)');
+                        }
+                        if (stage !== 'RESOLVED' && typeof storeMsg.downloadMedia === 'function') {
+                            await storeMsg.downloadMedia({
+                                downloadEvenIfExpensive: true,
+                                rmrReason: 1
+                            });
+                            mediaData = storeMsg.mediaData || mediaData;
+                        }
+                        const refreshedStage = mediaData && mediaData.mediaStage;
+                        if (refreshedStage === 'FETCHING' || (typeof refreshedStage === 'string' && refreshedStage.includes('ERROR'))) {
+                            throw new Error('Media not ready for download');
+                        }
+                    }
+
+                    let blobData;
+
+                    if (dlMgr.downloadAndMaybeDecrypt && mediaData) {
+                        const mockQpl = {
+                            addAnnotations: function () { return this; },
+                            addPoint: function () { return this; }
+                        };
+                        blobData = await dlMgr.downloadAndMaybeDecrypt({
+                            directPath: mediaData.directPath || storeMsg.directPath,
+                            encFilehash: mediaData.encFilehash || storeMsg.encFilehash,
+                            filehash: mediaData.filehash || storeMsg.filehash,
+                            mediaKey: mediaData.mediaKey || storeMsg.mediaKey,
+                            mediaKeyTimestamp: mediaData.mediaKeyTimestamp || storeMsg.mediaKeyTimestamp,
+                            type: msgType,
+                            signal,
+                            downloadQpl: mockQpl
+                        });
+                    } else if (dlMgr.downloadAndDecrypt) {
+                        const mediaInfo = mediaData || storeMsg;
+                        if (!mediaInfo || !mediaInfo.directPath) {
+                            throw new Error('Missing media info for downloadAndDecrypt');
+                        }
+                        blobData = await dlMgr.downloadAndDecrypt({
+                            directPath: mediaInfo.directPath,
+                            encFilehash: mediaInfo.encFilehash,
+                            filehash: mediaInfo.filehash,
+                            mediaKey: mediaInfo.mediaKey,
+                            mediaKeyTimestamp: mediaInfo.mediaKeyTimestamp,
+                            type: msgType,
+                            signal,
+                        });
+                    } else {
+                        throw new Error('Download manager unavailable');
+                    }
+
+                    const blob = new Blob([blobData], { type: 'application/octet-stream' });
+                    const reader = new FileReader();
+
+                    reader.onload = async function () {
+                        if (!reader.result || typeof reader.result !== 'string') return;
+
+                        const audioData = reader.result.split(',')[1];
+
+                        // Send message to content script
+                        window.postMessage({
+                            type: 'TRANSCRIBE_AUDIO',
+                            audioData: audioData,
+                            messageId: id
+                        }, '*');
+                    };
+
+                    reader.readAsDataURL(blob);
                 } catch (error) {
                     console.error('Processing Error:', error);
                     button.textContent = 'Error - Try again';
