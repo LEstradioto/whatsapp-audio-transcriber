@@ -83,6 +83,20 @@
 
     // Cache of transcriptions pulled from extension storage
     let cachedTranscriptions = {};
+    const pendingRequests = new Map();
+
+    const isOutgoingId = (id) => typeof id === 'string' && id.startsWith('true_');
+
+    const setButtonOffset = (button, id, offsetPx) => {
+        if (!button) return;
+        if (isOutgoingId(id)) {
+            button.style.left = `${offsetPx}px`;
+            button.style.right = 'auto';
+        } else {
+            button.style.right = `${offsetPx}px`;
+            button.style.left = 'auto';
+        }
+    };
 
     const requestSavedTranscriptions = () => {
         window.postMessage({ type: 'GET_SAVED_TRANSCRIPTIONS' }, '*');
@@ -99,17 +113,24 @@
             const textContentDiv = transcriptionContainer ? transcriptionContainer.querySelector('.transcription-text') : null;
 
             if (button && transcriptionContainer && textContentDiv) {
+                const pending = pendingRequests.get(messageId);
+                if (pending && pending.timeoutId) {
+                    clearTimeout(pending.timeoutId);
+                }
+                pendingRequests.delete(messageId);
+                const existingError = transcriptionContainer.querySelector('.error-message');
+                if (existingError) existingError.remove();
                 if (event.data.success) {
                     button.textContent = 'Transcribe again';
                     button.style.background = 'rgb(0 92 75)';
-                    button.style.right = '-240px';
+                    setButtonOffset(button, messageId, -240);
                     button.disabled = false;
                     transcriptionContainer.style.display = 'block';
                     textContentDiv.textContent = event.data.data.text;
                     // Content script persists it; update cache locally too
                     cachedTranscriptions[messageId] = { text: event.data.data.text, timestamp: Date.now() };
                 } else {
-                    console.error('GROQ API Error:', event.data.error);
+                    console.error('Transcription Error:', event.data.error);
                     button.textContent = 'Error - Try again';
                     button.style.background = '#f44336';
                     button.disabled = false;
@@ -126,7 +147,7 @@
                         background: #f44336;
                         color: white;
                     `;
-                    if (event.data.options && event.data.error === "GROQ API MISSING OR INVALID") {
+                    if (event.data.options && /API MISSING OR INVALID/i.test(event.data.error || '')) {
                         errorMessage.innerHTML = event.data.error + ' <a href="#" id="open-settings" style="color:#0084ff;text-decoration:underline;">Open settings</a>';
                         errorMessage.querySelector('a').addEventListener('click', () => {
                             window.postMessage({ type: 'OPEN_SETTINGS' }, '*');
@@ -144,11 +165,12 @@
     window.addEventListener('message', function (event) {
         if (event.data.type === 'SAVED_TRANSCRIPTIONS') {
             cachedTranscriptions = event.data.payload || {};
+            injectTranscribeButtons(document);
         }
     });
 
-    function injectTranscribeButtons() {
-        const messages = document.querySelectorAll('[data-id]');
+    function injectTranscribeButtons(root = document) {
+        const canvases = root.querySelectorAll('canvas:not([data-watr-processed])');
         const savedTranscriptions = cachedTranscriptions;
 
         // Define SVG icons as constants to avoid repetition
@@ -158,11 +180,10 @@
             ERROR: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="gray"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z"/></svg>'
         };
 
-        messages.forEach(messageElement => {
-            const id = messageElement.getAttribute('data-id');
-            if (!id || !id.startsWith('false_')) return;
-            const waveformContainer = messageElement.querySelector('canvas');
-            if (!waveformContainer || waveformContainer.dataset.hasButton) return;
+        canvases.forEach(waveformContainer => {
+            const messageElement = waveformContainer.closest('[data-id]');
+            const id = messageElement ? messageElement.getAttribute('data-id') : null;
+            if (!id || waveformContainer.dataset.watrProcessed) return;
 
             // Find the parent row element
             const rowElement = messageElement.closest('[role="row"]');
@@ -174,7 +195,6 @@
             button.dataset.messageId = id;  // Add message ID as data attribute
             button.style.cssText = `
           position: absolute;
-          right: -200px;
           top: 50%;
           transform: translateY(-50%);
           font-size: 12px;
@@ -186,6 +206,7 @@
           border: none;
           border-radius: 4px;
         `;
+            setButtonOffset(button, id, -200);
 
             // Create transcription container (hidden initially)
             waveformContainer.style.position = 'relative';
@@ -268,7 +289,7 @@
                 textContentDiv.textContent = savedTranscriptions[id].text;
                 button.textContent = 'Transcribe again';
                 button.style.background = 'rgb(0 92 75)';
-                button.style.right = ' -240px';
+                setButtonOffset(button, id, -240);
             }
 
             // Add copy button click handler
@@ -324,9 +345,17 @@
             // Add transcribe button click handler
             button.addEventListener('click', async () => {
                 try {
+                    const existingError = transcriptionContainer.querySelector('.error-message');
+                    if (existingError) existingError.remove();
                     button.textContent = 'Transcribing...';
                     button.disabled = true;
                     button.style.background = '#999999';
+                    const timeoutId = setTimeout(() => {
+                        button.textContent = 'Timed out';
+                        button.style.background = '#f44336';
+                        button.disabled = false;
+                    }, 60000);
+                    pendingRequests.set(id, { timeoutId });
 
                     const storeMsg = window.Store.Msg.get(id);
 
@@ -408,7 +437,8 @@
                         throw new Error('Download manager unavailable');
                     }
 
-                    const blob = new Blob([blobData], { type: 'application/octet-stream' });
+                    const mimeType = (mediaData && mediaData.mimetype) || 'audio/webm';
+                    const blob = new Blob([blobData], { type: mimeType });
                     const reader = new FileReader();
 
                     reader.onload = async function () {
@@ -420,7 +450,8 @@
                         window.postMessage({
                             type: 'TRANSCRIBE_AUDIO',
                             audioData: audioData,
-                            messageId: id
+                            messageId: id,
+                            mimeType
                         }, '*');
                     };
 
@@ -430,11 +461,18 @@
                     button.textContent = 'Error - Try again';
                     button.style.background = '#f44336';
                     button.disabled = false;
+                    const pending = pendingRequests.get(id);
+                    if (pending && pending.timeoutId) clearTimeout(pending.timeoutId);
+                    pendingRequests.delete(id);
                 }
             });
 
-            waveformContainer.parentElement.appendChild(button);
-            waveformContainer.dataset.hasButton = 'true';
+            const buttonHost = waveformContainer.parentElement || waveformContainer;
+            if (buttonHost) {
+                buttonHost.style.position = buttonHost.style.position || 'relative';
+                buttonHost.appendChild(button);
+            }
+            waveformContainer.dataset.watrProcessed = 'true';
         });
     }
 
@@ -452,7 +490,17 @@
             throw new Error('Failed to find message container after multiple attempts');
         }
 
-        new MutationObserver(injectTranscribeButtons).observe(container, {
+        let scheduled = false;
+        const scheduleInject = () => {
+            if (scheduled) return;
+            scheduled = true;
+            requestAnimationFrame(() => {
+                scheduled = false;
+                injectTranscribeButtons(document);
+            });
+        };
+
+        new MutationObserver(scheduleInject).observe(container, {
             childList: true,
             subtree: true
         });
@@ -461,5 +509,6 @@
         return container;
     }
 
+    injectTranscribeButtons(document);
     setupMutationObserver();
 })();

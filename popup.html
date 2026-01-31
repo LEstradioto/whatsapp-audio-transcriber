@@ -88,6 +88,16 @@
             min-height: 14px;
         }
 
+        #downloadModelBtn {
+            font-size: 11px;
+            padding: 4px 6px;
+        }
+
+        #downloadStatus {
+            font-size: 11px;
+            min-height: 14px;
+        }
+
         .divider {
             margin: 12px 0 10px;
             border-top: 1px solid #ccc;
@@ -119,10 +129,17 @@
 
 <body>
     <h1>WhatsApp Transcriber</h1>
-    <p style="margin:0 0 8px;font-size:12px;">Enter your <strong>GROQ API key</strong>, pick a model, then open
+    <p style="margin:0 0 8px;font-size:12px;">Choose a provider, add your API key if needed, then open
         <strong>web.whatsapp.com</strong>. New audio messages get a Transcribe button.</p>
 
-    <label for="apiKey">GROQ API Key</label>
+    <label for="providerSelect">Provider</label>
+    <select id="providerSelect">
+        <option value="groq">Groq (Whisper)</option>
+        <option value="openai">OpenAI (gpt-4o-transcribe)</option>
+        <option value="local">Local (browser, experimental)</option>
+    </select>
+
+    <label for="apiKey"><span id="apiKeyLabel">API Key</span></label>
     <input type="password" id="apiKey" placeholder="gsk_..." autocomplete="off" />
 
     <label for="modelSelect" style="display:flex; align-items:center; justify-content:space-between;">
@@ -131,20 +148,26 @@
     </label>
     <select id="modelSelect"></select>
     <div id="fetchStatus"></div>
+    <div class="row" style="margin-top:6px;">
+        <button id="downloadModelBtn" type="button">Download model</button>
+        <div id="downloadStatus"></div>
+    </div>
+
+    <div id="costInfo" style="margin-top:6px;font-size:11px;line-height:1.4;"></div>
 
     <button id="saveBtn">Save Settings</button>
     <div id="status"></div>
 
     <div class="divider"></div>
-    <small>
+    <small id="helpText">
         How to use:<br />
-        1. Get an API key at <a href="https://console.groq.com/keys" target="_blank">GROQ Console</a>.<br />
+        1. Get an API key from your provider.<br />
         2. Paste it above and Save.<br />
         3. Go to or refresh WhatsApp Web. Audio messages will show a Transcribe button.<br />
         Your key is stored only locally (Chrome sync storage). Transcriptions (last 3 days) are stored in extension
         local storage, not on WhatsApp.
     </small>
-    <p class="danger-note">Never share your API key. Anyone with it could spend your quota.</p>
+    <p class="danger-note" id="dangerNote">Never share your API key. Anyone with it could spend your quota.</p>
 
     <script src="popup.js"></script>
 </body>

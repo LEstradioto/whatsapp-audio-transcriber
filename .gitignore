@@ -1,0 +1,6 @@
+# Local vendor bundle for browser transcription runtime
+vendor/
+
+# npm pack artifacts
+*.tgz
+package/

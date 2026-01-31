@@ -3,12 +3,24 @@ async function getTranscriptions() {
     return await new Promise(resolve => chrome.storage.local.get({ transcriptions: {} }, items => resolve(items.transcriptions)));
 }
 
-// TTL cleanup (3 days)
+const TRANSCRIPTION_TTL_MS = 3 * 24 * 60 * 60 * 1000;
+const MAX_TRANSCRIPTIONS = 1000;
+
+// TTL + size cleanup
 async function pruneOld(transcriptions) {
-    const threeDaysAgo = Date.now() - (3 * 24 * 60 * 60 * 1000);
+    const threeDaysAgo = Date.now() - TRANSCRIPTION_TTL_MS;
     let changed = false;
     for (const k of Object.keys(transcriptions)) {
         if (transcriptions[k].timestamp < threeDaysAgo) { delete transcriptions[k]; changed = true; }
+    }
+    const keys = Object.keys(transcriptions);
+    if (keys.length > MAX_TRANSCRIPTIONS) {
+        const sorted = keys.sort((a, b) => (transcriptions[a].timestamp || 0) - (transcriptions[b].timestamp || 0));
+        const toRemove = sorted.slice(0, keys.length - MAX_TRANSCRIPTIONS);
+        for (const k of toRemove) {
+            delete transcriptions[k];
+        }
+        changed = true;
     }
     if (changed) {
         await new Promise(r => chrome.storage.local.set({ transcriptions }, r));
@@ -29,59 +41,31 @@ window.addEventListener('message', async function (event) {
 
     if (event.data.type === 'TRANSCRIBE_AUDIO') {
         try {
-            // Convert base64 to blob
-            const binaryStr = atob(event.data.audioData);
-            const bytes = new Uint8Array(binaryStr.length);
-            for (let i = 0; i < binaryStr.length; i++) {
-                bytes[i] = binaryStr.charCodeAt(i);
-            }
-            const audioBlob = new Blob([bytes], { type: 'audio/webm' });
-
-            // Create FormData and append the audio file
-            const formData = new FormData();
-            formData.append('file', audioBlob, 'audio.webm');
-            // Retrieve API key and model from storage
-            const settings = await new Promise(resolve => chrome.storage.sync.get({ apiKey: '', model: 'whisper-large-v3' }, resolve));
-
-            // Validate that we have a proper API key that starts with "gsk_"
-            if (!settings.apiKey || !settings.apiKey.trim() || !settings.apiKey.startsWith('gsk_')) {
-                console.error('GROQ API key is missing or invalid! Please configure it in the extension options.');
-                window.postMessage({
-                    type: 'TRANSCRIBE_RESPONSE',
-                    messageId: event.data.messageId,
-                    success: false,
-                    error: "GROQ API MISSING OR INVALID",
-                    options: true
-                }, '*');
-                return; // Stop execution if no valid API key
-            }
-
-            formData.append('model', settings.model);
-
-            // Make API call directly from content script
-            const response = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${settings.apiKey.trim()}`
-                },
-                body: formData
+            if (!event.data.messageId || !event.data.audioData) return;
+            const button = document.querySelector(`button.transcribe-btn[data-message-id="${event.data.messageId}"]`);
+            if (!button) return;
+            const result = await safeSendMessage({
+                type: 'TRANSCRIBE_REQUEST',
+                audioData: event.data.audioData,
+                mimeType: event.data.mimeType || 'audio/webm',
+                messageId: event.data.messageId
             });
-
-            const result = await response.json();
 
             // Send response back to injected script
             window.postMessage({
                 type: 'TRANSCRIBE_RESPONSE',
                 messageId: event.data.messageId,
-                success: true,
-                data: result
+                success: Boolean(result && result.success),
+                data: result && result.data,
+                error: result && result.error,
+                options: result && result.options
             }, '*');
             // Persist transcription text if available
-            if (result && result.text) {
-                saveTranscription(event.data.messageId, result.text);
+            if (result && result.data && result.data.text) {
+                saveTranscription(event.data.messageId, result.data.text);
             }
         } catch (error) {
-            console.error('GROQ API Error:', error);
+            console.error('Transcription Error:', error);
             window.postMessage({
                 type: 'TRANSCRIBE_RESPONSE',
                 messageId: event.data.messageId,
@@ -95,6 +79,12 @@ window.addEventListener('message', async function (event) {
         const transcriptions = await pruneOld(await getTranscriptions());
         window.postMessage({ type: 'SAVED_TRANSCRIPTIONS', payload: transcriptions }, '*');
     }
+
+    if (event.data.type === 'OPEN_SETTINGS') {
+        if (chrome.runtime && chrome.runtime.id) {
+            chrome.runtime.sendMessage({ type: 'OPEN_SETTINGS_TAB' });
+        }
+    }
 }, false);
 
 // Inject our script into the page
@@ -102,3 +92,20 @@ const script = document.createElement('script');
 script.src = chrome.runtime.getURL('injected.js');
 (document.head || document.documentElement).appendChild(script);
 script.onload = () => script.remove();
+
+async function safeSendMessage(payload) {
+    if (!chrome.runtime || !chrome.runtime.id) {
+        return {
+            success: false,
+            error: 'Extension context invalidated. Refresh WhatsApp Web and try again.'
+        };
+    }
+    try {
+        return await chrome.runtime.sendMessage(payload);
+    } catch (error) {
+        return {
+            success: false,
+            error: 'Extension context invalidated. Refresh WhatsApp Web and try again.'
+        };
+    }
+}

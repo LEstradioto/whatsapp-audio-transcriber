@@ -1,16 +1,27 @@
 {
   "manifest_version": 3,
   "name": "WhatsApp Transcription",
-  "version": "1.1",
-  "description": "Transcribes WhatsApp audio messages using the GROQ API.",
+  "version": "1.6",
+  "description": "Transcribes WhatsApp audio messages using Groq or OpenAI.",
   "permissions": [
     "scripting",
-    "storage"
+    "storage",
+    "offscreen"
   ],
   "host_permissions": [
     "https://web.whatsapp.com/*",
-    "https://api.groq.com/*"
+    "https://api.groq.com/*",
+    "https://api.openai.com/*",
+    "https://huggingface.co/*",
+    "https://cdn-lfs.huggingface.co/*"
   ],
+  "optional_host_permissions": [
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
+  },
   "background": {
     "service_worker": "background.js"
   },
