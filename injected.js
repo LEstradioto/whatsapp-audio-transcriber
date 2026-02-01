@@ -86,16 +86,26 @@
     const pendingRequests = new Map();
 
     const isOutgoingId = (id) => typeof id === 'string' && id.startsWith('true_');
+    const INBOUND_BUTTON_X = 470;
+    const OUTBOUND_BUTTON_X = 470;
+    const buttonAnchors = new WeakMap();
 
-    const setButtonOffset = (button, id, offsetPx) => {
+    const positionButton = (button, id) => {
         if (!button) return;
+        const anchor = buttonAnchors.get(button);
+        const host = (anchor && anchor.host) || button.offsetParent || button.parentElement;
+        if (!host) return;
+
+        const hostRect = host.getBoundingClientRect();
+        const topPx = hostRect.height / 2;
         if (isOutgoingId(id)) {
-            button.style.left = `${offsetPx}px`;
-            button.style.right = 'auto';
-        } else {
-            button.style.right = `${offsetPx}px`;
+            button.style.right = `${Math.round(OUTBOUND_BUTTON_X)}px`;
             button.style.left = 'auto';
+        } else {
+            button.style.left = `${Math.round(INBOUND_BUTTON_X)}px`;
+            button.style.right = 'auto';
         }
+        button.style.top = `${Math.round(topPx)}px`;
     };
 
     const requestSavedTranscriptions = () => {
@@ -123,7 +133,7 @@
                 if (event.data.success) {
                     button.textContent = 'Transcribe again';
                     button.style.background = 'rgb(0 92 75)';
-                    setButtonOffset(button, messageId, -240);
+                    positionButton(button, messageId);
                     button.disabled = false;
                     transcriptionContainer.style.display = 'block';
                     textContentDiv.textContent = event.data.data.text;
@@ -133,6 +143,7 @@
                     console.error('Transcription Error:', event.data.error);
                     button.textContent = 'Error - Try again';
                     button.style.background = '#f44336';
+                    positionButton(button, messageId);
                     button.disabled = false;
 
                     // Show error message
@@ -184,6 +195,24 @@
             const messageElement = waveformContainer.closest('[data-id]');
             const id = messageElement ? messageElement.getAttribute('data-id') : null;
             if (!id || waveformContainer.dataset.watrProcessed) return;
+            if (document.querySelector(`button.transcribe-btn[data-message-id="${id}"]`)) {
+                waveformContainer.dataset.watrProcessed = 'true';
+                return;
+            }
+            const storeMsg = window.Store && window.Store.Msg && window.Store.Msg.get ? window.Store.Msg.get(id) : null;
+            const msgType = storeMsg && (storeMsg.type || (storeMsg.mediaData && storeMsg.mediaData.type));
+            if (msgType && !(msgType === 'audio' || msgType === 'ptt')) {
+                waveformContainer.dataset.watrProcessed = 'true';
+                return;
+            }
+            if (!msgType) {
+                const hasAudioPlay = messageElement && messageElement.querySelector('[data-icon="audio-play"], [data-icon="audio-pause"]');
+                const ariaAudio = messageElement && messageElement.querySelector('[aria-label*="mensagem de voz" i], [aria-label*="voice message" i]');
+                if (!hasAudioPlay && !ariaAudio) {
+                    waveformContainer.dataset.watrProcessed = 'true';
+                    return;
+                }
+            }
 
             // Find the parent row element
             const rowElement = messageElement.closest('[role="row"]');
@@ -195,10 +224,10 @@
             button.dataset.messageId = id;  // Add message ID as data attribute
             button.style.cssText = `
           position: absolute;
-          top: 50%;
+          top: 0;
           transform: translateY(-50%);
           font-size: 12px;
-          padding: 4px 8px;
+          padding: 6px 10px;
           z-index: 1000;
           cursor: pointer;
           background: #00a884;
@@ -206,7 +235,7 @@
           border: none;
           border-radius: 4px;
         `;
-            setButtonOffset(button, id, -200);
+            button.style.visibility = 'hidden';
 
             // Create transcription container (hidden initially)
             waveformContainer.style.position = 'relative';
@@ -289,7 +318,7 @@
                 textContentDiv.textContent = savedTranscriptions[id].text;
                 button.textContent = 'Transcribe again';
                 button.style.background = 'rgb(0 92 75)';
-                setButtonOffset(button, id, -240);
+                positionButton(button, id);
             }
 
             // Add copy button click handler
@@ -348,10 +377,12 @@
                     const existingError = transcriptionContainer.querySelector('.error-message');
                     if (existingError) existingError.remove();
                     button.textContent = 'Transcribing...';
+                    positionButton(button, id);
                     button.disabled = true;
                     button.style.background = '#999999';
                     const timeoutId = setTimeout(() => {
                         button.textContent = 'Timed out';
+                        positionButton(button, id);
                         button.style.background = '#f44336';
                         button.disabled = false;
                     }, 60000);
@@ -368,6 +399,7 @@
 
                     if (!(msgType === 'audio' || msgType === 'ptt')) {
                         button.textContent = 'Not an audio message';
+                        positionButton(button, id);
                         button.style.background = '#f44336';
                         button.disabled = false;
                         return;
@@ -459,6 +491,7 @@
                 } catch (error) {
                     console.error('Processing Error:', error);
                     button.textContent = 'Error - Try again';
+                    positionButton(button, id);
                     button.style.background = '#f44336';
                     button.disabled = false;
                     const pending = pendingRequests.get(id);
@@ -467,10 +500,16 @@
                 }
             });
 
-            const buttonHost = waveformContainer.parentElement || waveformContainer;
+            const buttonHost = rowElement || messageElement || waveformContainer.parentElement || waveformContainer;
             if (buttonHost) {
                 buttonHost.style.position = buttonHost.style.position || 'relative';
+                buttonHost.style.overflow = 'visible';
                 buttonHost.appendChild(button);
+                buttonAnchors.set(button, { host: buttonHost });
+                requestAnimationFrame(() => {
+                    positionButton(button, id);
+                    button.style.visibility = 'visible';
+                });
             }
             waveformContainer.dataset.watrProcessed = 'true';
         });
