@@ -21,34 +21,47 @@
 
     // At this point, require is available
 
-    // Function to load WhatsApp modules with retry
     const loadWhatsAppModules = async (retryCount = 0, maxRetries = 3) => {
         try {
             window.Store = Object.assign({}, window.require('WAWebCollections'));
-
-            const downloadManager = window.require('WAWebDownloadManager');
-            window.Store.DownloadManager = downloadManager.downloadManager;
-
+            window.Store.DownloadManager = window.require('WAWebDownloadManager').downloadManager;
             window.Store.Validators = window.require('WALinkify');
-
             console.log('WhatsApp modules loaded successfully');
             return true;
         } catch (error) {
             console.warn(`Failed to load WhatsApp modules (attempt ${retryCount + 1}/${maxRetries}):`, error);
-
             if (retryCount < maxRetries) {
-                console.log(`Retrying in 2 seconds...`);
                 await new Promise(resolve => setTimeout(resolve, 2000));
                 return loadWhatsAppModules(retryCount + 1, maxRetries);
-            } else {
-                console.error('Failed to load WhatsApp modules after maximum retries');
-                return false;
             }
+            console.error('Failed to load WhatsApp modules after maximum retries');
+            return false;
         }
     };
 
     // Initial load attempt
     await loadWhatsAppModules();
+
+    // Resolve a message from the DOM's data-id. WhatsApp's current DOM emits
+    // only the bare message hash (e.g. "AC386A5F..."), so Store.Msg.get(id) —
+    // which keys by full _serialized — always misses. Scan chats' msgs
+    // collections and match by msg.id.id, prioritizing the active chat.
+    const findMsg = (id) => {
+        const Chat = window.Store && window.Store.Chat;
+        if (!Chat) return null;
+        const chats = Chat.getModelsArray ? Chat.getModelsArray() : (Chat.models || []);
+        const active = chats.find(c => c && c.active);
+        const ordered = active ? [active, ...chats.filter(c => c !== active)] : chats;
+        for (const chat of ordered) {
+            const models = chat && chat.msgs && (chat.msgs.getModelsArray
+                ? chat.msgs.getModelsArray()
+                : chat.msgs.models);
+            if (!models) continue;
+            const found = models.find(m => m && m.id && m.id.id === id);
+            if (found) return found;
+        }
+        return null;
+    };
 
     window.WWebJS = {};
 
@@ -388,10 +401,9 @@
                     }, 60000);
                     pendingRequests.set(id, { timeoutId });
 
-                    const storeMsg = window.Store.Msg.get(id);
-
+                    const storeMsg = findMsg(id);
                     if (!storeMsg) {
-                        throw new Error('Message not found');
+                        throw new Error('Message not found (scroll to the message in the chat and try again)');
                     }
 
                     let mediaData = storeMsg.mediaData;
