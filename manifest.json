@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "WhatsApp Transcription",
-  "version": "1.6",
+  "version": "1.7",
   "description": "Transcribes WhatsApp audio messages using Groq or OpenAI.",
   "permissions": [
     "scripting",
