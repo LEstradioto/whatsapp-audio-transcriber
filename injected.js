@@ -192,7 +192,10 @@
     });
 
     function injectTranscribeButtons(root = document) {
-        const canvases = root.querySelectorAll('canvas:not([data-watr-processed])');
+        // WhatsApp dropped the <canvas> waveform from voice messages; the
+        // slider is now the reliable anchor for both voice messages (ptt)
+        // and audio-file attachments, and it's language-agnostic.
+        const audioAnchors = root.querySelectorAll('[role="slider"][aria-valuetext]:not([data-watr-processed])');
         const savedTranscriptions = cachedTranscriptions;
 
         // Define SVG icons as constants to avoid repetition
@@ -202,25 +205,25 @@
             ERROR: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="gray"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z"/></svg>'
         };
 
-        canvases.forEach(waveformContainer => {
-            const messageElement = waveformContainer.closest('[data-id]');
+        audioAnchors.forEach(audioAnchor => {
+            const messageElement = audioAnchor.closest('[data-id]');
             const id = messageElement ? messageElement.getAttribute('data-id') : null;
-            if (!id || waveformContainer.dataset.watrProcessed) return;
+            if (!id || audioAnchor.dataset.watrProcessed) return;
             if (document.querySelector(`button.transcribe-btn[data-message-id="${id}"]`)) {
-                waveformContainer.dataset.watrProcessed = 'true';
+                audioAnchor.dataset.watrProcessed = 'true';
                 return;
             }
             const storeMsg = window.Store && window.Store.Msg && window.Store.Msg.get ? window.Store.Msg.get(id) : null;
             const msgType = storeMsg && (storeMsg.type || (storeMsg.mediaData && storeMsg.mediaData.type));
             if (msgType && !(msgType === 'audio' || msgType === 'ptt')) {
-                waveformContainer.dataset.watrProcessed = 'true';
+                audioAnchor.dataset.watrProcessed = 'true';
                 return;
             }
             if (!msgType) {
                 const hasAudioPlay = messageElement && messageElement.querySelector('[data-icon="audio-play"], [data-icon="audio-pause"]');
                 const ariaAudio = messageElement && messageElement.querySelector('[aria-label*="mensagem de voz" i], [aria-label*="voice message" i]');
                 if (!hasAudioPlay && !ariaAudio) {
-                    waveformContainer.dataset.watrProcessed = 'true';
+                    audioAnchor.dataset.watrProcessed = 'true';
                     return;
                 }
             }
@@ -249,7 +252,7 @@
             button.style.visibility = 'hidden';
 
             // Create transcription container (hidden initially)
-            waveformContainer.style.position = 'relative';
+            audioAnchor.style.position = 'relative';
             const transcriptionContainer = document.createElement('div');
             transcriptionContainer.className = 'transcription-container';
             transcriptionContainer.dataset.messageId = id;  // Add message ID as data attribute
@@ -510,7 +513,7 @@
                 }
             });
 
-            const buttonHost = rowElement || messageElement || waveformContainer.parentElement || waveformContainer;
+            const buttonHost = rowElement || messageElement || audioAnchor.parentElement || audioAnchor;
             if (buttonHost) {
                 buttonHost.style.position = buttonHost.style.position || 'relative';
                 buttonHost.style.overflow = 'visible';
@@ -521,7 +524,7 @@
                     button.style.visibility = 'visible';
                 });
             }
-            waveformContainer.dataset.watrProcessed = 'true';
+            audioAnchor.dataset.watrProcessed = 'true';
         });
     }
 
