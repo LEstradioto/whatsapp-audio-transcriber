@@ -2,24 +2,22 @@
 (async () => {
     console.log('Injected script waiting for WhatsApp require...');
 
-    // Function to check if require is available and working
-    const checkRequire = () => {
-        try {
-            if (typeof window.require === 'function') {
-                return true;
-            }
-        } catch (err) {
-            return false;
-        }
-        return false;
-    };
-
-    // Wait for require to be available
-    while (!checkRequire()) {
+    while (typeof window.require !== 'function') {
         await new Promise(resolve => setTimeout(resolve, 100));
     }
 
-    // At this point, require is available
+    // Wait for WhatsApp's main UI to render before calling require(). Calling
+    // require() on a not-yet-registered module throws synchronously, and
+    // WhatsApp's ErrorUtils reports it as a red error + crashlog POST before
+    // our try/catch can intervene. Once the chat-list pane exists, the
+    // webpack registry is guaranteed to be populated.
+    const isWhatsAppReady = () =>
+        document.querySelector('#pane-side') ||
+        document.querySelector('[aria-label*="Chat list" i]') ||
+        document.querySelector('[data-testid="chat-list"]');
+    while (!isWhatsAppReady()) {
+        await new Promise(resolve => setTimeout(resolve, 300));
+    }
 
     const loadWhatsAppModules = async (retryCount = 0, maxRetries = 3) => {
         try {
