@@ -447,6 +447,12 @@
                         }
                     }
 
+                    // WhatsApp validates the MIME type during download; omitting it
+                    // defaults to application/octet-stream, which is rejected for ptt.
+                    const mimeType = [mediaData && mediaData.mimetype, storeMsg.mimetype]
+                        .map(type => typeof type === 'string' ? type.trim() : '')
+                        .find(type => type && type.split(';')[0].trim().toLowerCase() !== 'application/octet-stream')
+                        || (msgType === 'ptt' ? 'audio/ogg; codecs=opus' : 'audio/webm');
                     let blobData;
 
                     if (dlMgr.downloadAndMaybeDecrypt && mediaData) {
@@ -460,6 +466,7 @@
                             filehash: mediaData.filehash || storeMsg.filehash,
                             mediaKey: mediaData.mediaKey || storeMsg.mediaKey,
                             mediaKeyTimestamp: mediaData.mediaKeyTimestamp || storeMsg.mediaKeyTimestamp,
+                            mimetype: mimeType,
                             type: msgType,
                             signal,
                             downloadQpl: mockQpl
@@ -475,6 +482,7 @@
                             filehash: mediaInfo.filehash,
                             mediaKey: mediaInfo.mediaKey,
                             mediaKeyTimestamp: mediaInfo.mediaKeyTimestamp,
+                            mimetype: mimeType,
                             type: msgType,
                             signal,
                         });
@@ -482,7 +490,6 @@
                         throw new Error('Download manager unavailable');
                     }
 
-                    const mimeType = (mediaData && mediaData.mimetype) || 'audio/webm';
                     const blob = new Blob([blobData], { type: mimeType });
                     const reader = new FileReader();
 
